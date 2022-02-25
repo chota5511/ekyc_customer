@@ -1,9 +1,9 @@
 const pg = require('pg');
 const json_utilities = require('./json_utilities.js');
-const s3_utilities = require('./s3_utilities.js');
+const aws_utilities = require('./aws_utilities.js');
 const utilities = require('./utilities.js');
 
-const configPath = `./configuration.json`
+const configureKey = process.env['configureKey'];
 const dbUserName = process.env['dbUserName'];
 const dbHost = process.env['dbHost'];
 const dbName = process.env['dbName'];
@@ -13,7 +13,7 @@ const awsAccessID = process.env["awsAccessID"];
 const awsSecretKey = process.env["awsSecretKey"];
 const awsEkycBucket = process.env["awsEkycBucket"];
 
-const configureFile = json_utilities.readJSON(configPath);
+const configureFile = JSON.parse(aws_utilities.s3Read('acbs-test-data',configureKey));
 
 console.log(configureFile);
 
@@ -67,11 +67,11 @@ client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`).then((max_update
         data = json_utilities.jsonToCsv(data_res["rows"],fields)
 
         //Save CSV file to S3
-        s3_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`);
+        aws_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`);
 
         //Update config file
         configureFile["ekyc_updated_at"] = updatedAt;
-        json_utilities.writeJSON(configPath,configureFile);
+        aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey);
 
         //Close connection
         client.end();

@@ -15,6 +15,18 @@ const awsEkycBucket = process.env["awsEkycBucket"];
 
 const configureFile = JSON.parse(aws_utilities.s3Read('acbs-test-data',configureKey));
 
+const result = {
+  "Start datetime": '',
+  "End datetime": '',
+  "Execution": {
+    "Query": '',
+    "Respond query": '',
+    "Status": 'Failed'
+  }
+}
+
+result["Start datetime"] = new Date();
+
 console.log(configureFile);
 
 //Create client connection
@@ -35,6 +47,8 @@ client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`).then((max_update
   if (err) {
     console.log(err);
     client.end();                                                                                         //Close connection if err
+    result["End datetime"] = new Date();
+    console.log(JSON.stringify(result));;
   }
   else {
     var updatedAt = max_updated_at['rows'][0]['max'];
@@ -46,12 +60,14 @@ client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`).then((max_update
       last_run_query_str = `AND updated_at > '${configureFile["ekyc_updated_at"]}'::TIMESTAMP`
     }
     var query_str = `SELECT * FROM ekyc_customer WHERE updated_at <= '${updatedAt}'::TIMESTAMP ${last_run_query_str}`;
-    console.log(query_str)
+    result["Execution"]["Query"] = query_str;
     
     client.query(query_str).then((data_res,err1) => {                                                        //Run query for gather data
       if (err1) {
         console.log(err1);
         client.end();
+        result["End datetime"] = new Date();
+        console.log(JSON.stringify(result));;
       }
       else {
         var fields = [];
@@ -63,6 +79,8 @@ client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`).then((max_update
           fields.push(JSON.parse(JSON.stringify(data_res["fields"][i]["name"])).toString());
         }
 
+        result["Respond query"] = data_res;
+
         //Push data to a CSV file
         data = json_utilities.jsonToCsv(data_res["rows"],fields)
 
@@ -73,6 +91,11 @@ client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`).then((max_update
         configureFile["ekyc_updated_at"] = updatedAt;
         aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey);
 
+        //Return result
+        result["End datetime"] = new Date();
+        result["Execution"]["Status"] = 'Success';
+        console.log(JSON.stringify(result));
+        
         //Close connection
         client.end();
       }

@@ -21,7 +21,8 @@ const result = {
   "Execution": {
     "Query": '',
     "Respond query": '',
-    "Status": ''
+    "Status": '',
+    "Failed reason": ''
   }
 }
 
@@ -106,7 +107,7 @@ function main() {
   });
 }
 
-exports.handler = (event,context,callback) => {
+//exports.handler = (event,context,callback) => {
   //Run main function
   main();
 
@@ -121,7 +122,7 @@ exports.handler = (event,context,callback) => {
       result["Execution"]['Status'] = 'Failed';
       result["Execution"]['Failed reason'] = 'Request timeout!!!';
       console.log(`End getting data: ${result["End datetime"]}`);
-      process.exit();
+      process.exit(1);
       break;
     }
     else {
@@ -131,5 +132,5 @@ exports.handler = (event,context,callback) => {
   } while (true);
   console.log(`End getting data: ${result["End datetime"]}`);
   console.log(JSON.stringify(result));
-  callback(null,callback);
-}
+  //callback(null,callback);
+//}

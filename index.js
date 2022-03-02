@@ -9,10 +9,6 @@ const dbHost = process.env['dbHost'];
 const dbName = process.env['dbName'];
 const dbPassword = process.env['dbPassword'];
 
-const awsAccessID = process.env["awsAccessID"];
-const awsSecretKey = process.env["awsSecretKey"];
-const awsEkycBucket = process.env["awsEkycBucket"];
-
 var configureFile = {};
 
 async function main() {

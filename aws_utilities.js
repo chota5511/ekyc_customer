@@ -30,7 +30,7 @@ function s3Read(bucket, s3Key) {
     Key: s3Key
   }
 
-  var tmp = '';
+  var tmp = null;          //Default return null
   var timeout = 10;
 
   const data = s3.getObject(params, (s3Err, data) => {
@@ -42,7 +42,7 @@ function s3Read(bucket, s3Key) {
 
   //Make thing sync
   do {
-    if (tmp != '') {
+    if (tmp != null) {
       break;
     }
     else {

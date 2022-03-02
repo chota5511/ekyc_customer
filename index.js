@@ -5,7 +5,6 @@ const utilities = require('./utilities.js');
 const sleep = require('system-sleep');
 
 const configureKey = process.env['configureKey'];
-const configureFile = JSON.parse(aws_utilities.s3Read('acbs-test-data',configureKey));
 const dbUserName = process.env['dbUserName'];
 const dbHost = process.env['dbHost'];
 const dbName = process.env['dbName'];
@@ -108,10 +107,15 @@ function main() {
 }
 
 //exports.handler = (event,context,callback) => {
-  //Run main function
-  main();
+  //Getting configuration, if s3 configuration not fould then getting setting from default
+  const configureFile = JSON.parse(aws_utilities.s3Read('acbs-test-data',configureKey)) ?? json_utilities.readJSON('./configuration.json');
+
+  console.log(JSON.stringify(configureFile));
 
   var timeout = configureFile["Timeout"] ?? 15;
+
+  //Run main function
+  main();
 
   //Request timeout!!!
   do {

@@ -32,7 +32,7 @@ async function main() {
       "Status": '',
       "Failed reason": ''
     }
-  }
+  };
 
   //Create connection string
   const connection = {
@@ -42,7 +42,7 @@ async function main() {
     password: dbPassword,
     port: 5234
   };
-  
+
   result["Start datetime"] = new Date();
   console.log(`Start getting data: ${result["Start datetime"]}`);
 
@@ -70,11 +70,11 @@ async function main() {
   }
 
   //Getting data in range
-  console.log('Getting data at: ' + maxUpdatedAt)
+  console.log('Getting data at: ' + maxUpdatedAt);
 
   //Build and fill all data from last time run (if ekyc_updated_at is null then crawl all data)
   if (configureFile["ekyc_updated_at"] != '') {
-    lastRunQueryStr = `AND updated_at > '${configureFile["ekyc_updated_at"]}'::TIMESTAMP`
+    lastRunQueryStr = `AND updated_at > '${configureFile["ekyc_updated_at"]}'::TIMESTAMP`;
   }
   queryStr = `SELECT * FROM ekyc_customer WHERE updated_at <= '${maxUpdatedAt}'::TIMESTAMP ${lastRunQueryStr}`;
 
@@ -83,7 +83,7 @@ async function main() {
 
   try {
     data = await client.query(queryStr);
-    
+
     //Create table schema (fields)
     for (var i in data["fields"])
     {
@@ -113,7 +113,7 @@ async function main() {
     client.end();
     return result;
   }
-  
+
   //Return result
   result["End datetime"] = new Date();
   result["Execution"]["Status"] = 'Success';
@@ -121,9 +121,6 @@ async function main() {
   console.log(`End getting data: ${result["End datetime"]}`);
   return result;
 }
-
-//exports.handler = (event,context,callback) => {
-  //Getting configuration, if s3 configuration not fould then get setting from default
 
 async function run() {
   configureFile = JSON.parse(await aws_utilities.s3Read('acbs-test-data',configureKey)) ?? json_utilities.readJSON('./configuration.json');
@@ -134,5 +131,3 @@ async function run() {
   return main();
 }
 run();
-
-//}

@@ -23,6 +23,7 @@ function s3Upload(inputStream, bucket, s3Key) {
 
 async function s3Read(bucket, s3Key) {
   const s3 = new AWS.S3(AWS_CREDENTIAL);
+  var data = '';
 
   const params = {
     Bucket: bucket,
@@ -31,10 +32,13 @@ async function s3Read(bucket, s3Key) {
 
   var tmp = null;          //Default return null
   var timeout = 10;
-
-  const data = await s3.getObject(params).promise();
-
-  tmp = Buffer.from(data['Body']).toString();
+  try {
+    data = await s3.getObject(params).promise();
+    tmp = Buffer.from(data['Body']).toString();
+  }
+  catch (error) {
+    console.log(error);
+  }
   
   return tmp;
 }

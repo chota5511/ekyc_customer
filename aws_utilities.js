@@ -6,24 +6,19 @@ const AWS_CREDENTIAL = {
   region: process.env['awsRegion']
 };
 
-async function s3Upload(inputStream, bucket, s3Key) {
-  const s3 = new AWS.S3(AWS_CREDENTIAL)
-  var respond = null;
+function s3Upload(inputStream, bucket, s3Key) {
+   const s3 = new AWS.S3(AWS_CREDENTIAL)
 
-  const params = {
-    Bucket: bucket,
-    Key: s3Key,
-    Body: inputStream
-  };
+   const params = {
+      Bucket: bucket,
+      Key: s3Key,
+      Body: inputStream
+   };
 
-  try{
-    respond = await s3.upload(params).promise();
-  }
-  catch (error) {
-    console.log(error);
-    return;
-  }
-  console.log(`File uploaded successfully at ${respond["Location"]}`);
+  const data = s3.upload(params, function(s3Err, data) {
+    if (s3Err) throw s3Err
+    console.log(`File uploaded successfully at ${data.Location}`)
+  });
 }
 
 async function s3Read(bucket, s3Key) {

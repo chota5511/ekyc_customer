@@ -3,32 +3,54 @@ const json_utilities = require('./json_utilities.js');
 const aws_utilities = require('./aws_utilities.js');
 const utilities = require('./utilities.js');
 
+//Default configuration
+const configureFileLocation = process.env['awsEkycBucket'];
 const configureKey = process.env['configureKey'];
-const dbUserName = process.env['dbUserName'];
-const dbHost = process.env['dbHost'];
-const dbName = process.env['dbName'];
-const dbPassword = process.env['dbPassword'];
+const configureRequire = ['db_host','db_name','db_user_name','db_password','ekyc_bucket'];
+
+//Configuration variables
+var dbUserName = "";
+var dbHost = "";
+var dbName = "";
+var dbPassword = "";
+var awsEkycBucket = "";
 
 var configureFile = {};
 
+var result = {
+  "Start datetime": '',
+  "End datetime": '',
+  "Execution": {
+    "Query": '',
+    "Respond query": '',
+    "Status": '',
+    "Failed reason": ''
+  },
+  "Upload status": {
+    "Data file": '',
+    "Configuration": ''
+  }
+};
+
+//Check configuration function
+async function configurationCheck() {
+  for (i in configureRequire) {
+    if ((configureFile[configureRequire[i]] ?? '') == '') {
+      return configureRequire[i];
+    }
+  }
+  return true;
+}
+
 async function main() {
   //Initial variables
-  var maxUpdatedAt = null;
+  var maxUpdatedAt = '';
   var lastRunQueryStr = '';
   var queryStr = '';
   var dataFields = [];
   var data = '';
-
-  const result = {
-    "Start datetime": '',
-    "End datetime": '',
-    "Execution": {
-      "Query": '',
-      "Respond query": '',
-      "Status": '',
-      "Failed reason": ''
-    }
-  };
+  var promiseStack = [];
+  var uploadStatus = [];
 
   //Create connection string
   const connection = {
@@ -39,9 +61,6 @@ async function main() {
     port: 5234
   };
 
-  result["Start datetime"] = new Date();
-  console.log(`Start getting data: ${result["Start datetime"]}`);
-
   //Create connection
   var client = new pg.Client(connection);
 
@@ -50,7 +69,7 @@ async function main() {
 
   //Begin getting data
 
-  //Getting lated updated at in ekyc_customer
+  //Getting latest updated_at in ekyc_customer
   try {
     maxUpdatedAt = (await client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`))['rows'][0]['max'];
   }
@@ -61,6 +80,7 @@ async function main() {
     result['Execution']["Status"] = 'Failed';
 
     //End connection immidiately after an error and return result with failed status
+    console.error(result);
     client.end();
     return result;
   }
@@ -90,14 +110,19 @@ async function main() {
     result["Execution"]["Respond query"] = data;
 
     //Push data to a CSV file
-    data = json_utilities.jsonToCsv(data["rows"],dataFields);
+    data = await json_utilities.jsonToCsv(data["rows"],dataFields);
 
     //Save CSV file to S3
-    aws_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`);
+    promiseStack.push(aws_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`));
 
     //Update config file
     configureFile["ekyc_updated_at"] = maxUpdatedAt;
-    aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey);
+    promiseStack.push(aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey));
+
+    //Wait for all promise to complete
+    uploadStatus = await Promise.allSettled(promiseStack);
+    result["Upload status"]["Data file"] = uploadStatus[0]["status"];
+    result["Upload status"]["Configuration"] = uploadStatus[1]["status"];
   }
   catch (error) {
     console.log(error);
@@ -106,24 +131,48 @@ async function main() {
     result['Execution']["Status"] = 'Failed';
 
     //End connection immidiately after an error and return result with failed status
+    console.error(result);
     client.end();
     return result;
   }
 
   //Return result
-  result["End datetime"] = new Date();
-  result["Execution"]["Status"] = 'Success';
   client.end();
-  console.log(`End getting data: ${result["End datetime"]}`);
-  return result;
 }
 
 async function run() {
-  configureFile = JSON.parse(await aws_utilities.s3Read('acbs-test-data',configureKey)) ?? json_utilities.readJSON('./configuration.json');
+  result["Start datetime"] = new Date();
+  console.log(`Start getting data: ${result["Start datetime"]}`);
 
-  console.log(JSON.stringify(configureFile));
+  //Getting configuration, if s3 configuration not fould then get setting from default
+  console.log(`Getting configuration from AWS S3...`)
+  configureFile = JSON.parse(await aws_utilities.s3Read(configureFileLocation,configureKey)) ?? json_utilities.readJSON('./configuration.json');
+
+  console.log(`Checking configuration data file`)
+  var configCheckResult = await configurationCheck();                                                     //If configCheckResult != true then return a missing configuration
+  if (configCheckResult != true) {
+    result["Execution"]['Failed reason'] = `Missing ${configCheckResult} in configuration`;
+    result['Execution']["Status"] = 'Failed';
+    result["End datetime"] = new Date();
+    console.error(result);
+    return result;
+  }
+  //console.log(JSON.stringify(configureFile));
+
+  //Parsing config from configuration file
+  dbHost = configureFile["db_host"];
+  dbName = configureFile["db_name"];
+  dbUserName = configureFile["db_user_name"];
+  dbPassword = configureFile["db_password"];
+  awsEkycBucket = configureFile["ekyc_bucket"];
 
   //Run main function
-  return main();
+  await main()
+
+  result["End datetime"] = new Date();
+  result["Execution"]["Status"] = 'Success';
+  console.log(`End getting data: ${result["End datetime"]}`);
+
+  return result;
 }
 run();

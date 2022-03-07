@@ -3,11 +3,12 @@ const json_utilities = require('./json_utilities.js');
 const aws_utilities = require('./aws_utilities.js');
 const utilities = require('./utilities.js');
 
+//Default configuration
 const configureFileLocation = "acbs-test-data";
 const configureKey = "configuration.json";
 const configureRequire = ['db_host','db_name','db_user_name','db_password','ekyc_bucket'];
 
-//configuration variables
+//Configuration variables
 var dbUserName = "";
 var dbHost = "";
 var dbName = "";
@@ -16,6 +17,7 @@ var awsEkycBucket = "";
 
 var configureFile = {};
 
+//Result template
 var result = {
   "Start datetime": '',
   "End datetime": '',
@@ -31,6 +33,7 @@ var result = {
   }
 };
 
+//Check configuration function
 async function configurationCheck() {
   for (i in configureRequire) {
     if ((configureFile[configureRequire[i]] ?? '') == '') {
@@ -40,6 +43,7 @@ async function configurationCheck() {
   return true;
 }
 
+//Main function
 async function main() {
   //Initial variables
   var maxUpdatedAt = '';
@@ -67,7 +71,7 @@ async function main() {
 
   //Begin getting data
 
-  //Getting lated updated at in ekyc_customer
+  //Getting latest updated_at in ekyc_customer
   try {
     maxUpdatedAt = (await client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`))['rows'][0]['max'];
   }
@@ -109,7 +113,6 @@ async function main() {
 
     //Push data to a CSV file
     data = await json_utilities.jsonToCsv(data["rows"],dataFields);
-    console.log(data);
 
     //Save CSV file to S3
     promiseStack.push(aws_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`));
@@ -117,6 +120,7 @@ async function main() {
     //Update config file
     configureFile["ekyc_updated_at"] = maxUpdatedAt;
     promiseStack.push(aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey));
+
     //Wait for all promise to complete
     uploadStatus = await Promise.allSettled(promiseStack);
     result["Upload status"]["Data file"] = uploadStatus[0]["status"];
@@ -138,15 +142,14 @@ async function main() {
   client.end();
 }
 
-//exports.handler = async function (event, context) {
-async function run () {
+//Function run procedure
+exports.handler = async function (event, context, callback) {
   result["Start datetime"] = new Date();
   console.log(`Start getting data: ${result["Start datetime"]}`);
 
   //Getting configuration, if s3 configuration not fould then get setting from default
   console.log(`Getting configuration from AWS S3...`)
-    configureFile = JSON.parse(await aws_utilities.s3Read(configureFileLocation,configureKey)) ?? json_utilities.readJSON('./configuration.json');
-
+  configureFile = JSON.parse(await aws_utilities.s3Read(configureFileLocation,configureKey)) ?? json_utilities.readJSON('./configuration.json');
 
   console.log(`Checking configuration data file`)
   var configCheckResult = await configurationCheck();                                                     //If configCheckResult != true then return a missing configuration
@@ -157,7 +160,7 @@ async function run () {
     console.error(result);
     return result;
   }
-  console.log(JSON.stringify(configureFile));
+  //console.log(JSON.stringify(configureFile));
 
   //Parsing config from configuration file
   dbHost = configureFile["db_host"];
@@ -173,8 +176,5 @@ async function run () {
   result["Execution"]["Status"] = 'Success';
   console.log(`End getting data: ${result["End datetime"]}`);
 
-  console.log(result);
-
   return result;
 }
-run();

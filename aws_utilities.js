@@ -1,13 +1,7 @@
 const AWS = require('aws-sdk');
 
-const AWS_CREDENTIAL = {
-  accessKeyId: process.env['awsAccessID'],
-  secretAccessKey: process.env['awsSecretKey'],
-  region: process.env['awsRegion']
-};
-
 async function s3Upload(inputStream, bucket, s3Key) {
-  const s3 = new AWS.S3(AWS_CREDENTIAL)
+  const s3 = new AWS.S3()
   var respond = null;
 
   const params = {
@@ -27,7 +21,7 @@ async function s3Upload(inputStream, bucket, s3Key) {
 }
 
 async function s3Read(bucket, s3Key) {
-  const s3 = new AWS.S3(AWS_CREDENTIAL);
+  const s3 = new AWS.S3();
   var data = '';
 
   const params = {
@@ -44,7 +38,7 @@ async function s3Read(bucket, s3Key) {
   catch (error) {
     console.log(error);
   }
-  
+
   return tmp;
 }
 

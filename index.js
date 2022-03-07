@@ -67,7 +67,7 @@ async function main() {
 
   //Begin getting data
 
-  //Getting latest updated_at in ekyc_customer
+  //Getting lated updated at in ekyc_customer
   try {
     maxUpdatedAt = (await client.query(`SELECT MAX(updated_at)::TEXT FROM ekyc_customer`))['rows'][0]['max'];
   }
@@ -109,6 +109,7 @@ async function main() {
 
     //Push data to a CSV file
     data = await json_utilities.jsonToCsv(data["rows"],dataFields);
+    console.log(data);
 
     //Save CSV file to S3
     promiseStack.push(aws_utilities.s3Upload(data,awsEkycBucket,`ekyc_customer_${utilities.today()}.csv`));
@@ -116,7 +117,6 @@ async function main() {
     //Update config file
     configureFile["ekyc_updated_at"] = maxUpdatedAt;
     promiseStack.push(aws_utilities.s3Upload(JSON.stringify(configureFile),awsEkycBucket,configureKey));
-
     //Wait for all promise to complete
     uploadStatus = await Promise.allSettled(promiseStack);
     result["Upload status"]["Data file"] = uploadStatus[0]["status"];
@@ -145,7 +145,8 @@ async function run () {
 
   //Getting configuration, if s3 configuration not fould then get setting from default
   console.log(`Getting configuration from AWS S3...`)
-  configureFile = JSON.parse(await aws_utilities.s3Read(configureFileLocation,configureKey)) ?? json_utilities.readJSON('./configuration.json');
+    configureFile = JSON.parse(await aws_utilities.s3Read(configureFileLocation,configureKey)) ?? json_utilities.readJSON('./configuration.json');
+
 
   console.log(`Checking configuration data file`)
   var configCheckResult = await configurationCheck();                                                     //If configCheckResult != true then return a missing configuration
@@ -156,7 +157,7 @@ async function run () {
     console.error(result);
     return result;
   }
-  //console.log(JSON.stringify(configureFile));
+  console.log(JSON.stringify(configureFile));
 
   //Parsing config from configuration file
   dbHost = configureFile["db_host"];
@@ -171,6 +172,8 @@ async function run () {
   result["End datetime"] = new Date();
   result["Execution"]["Status"] = 'Success';
   console.log(`End getting data: ${result["End datetime"]}`);
+
+  console.log(result);
 
   return result;
 }
